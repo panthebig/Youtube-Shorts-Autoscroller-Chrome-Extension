@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "YouTube Shorts Autoscroll",
+  "description": "Automatically scrolls to the next YouTube Shorts video when one ends.",
+  "version": "1.0",
+  "permissions": ["activeTab", "scripting", "webNavigation"],
+  "host_permissions": ["https://www.youtube.com/shorts/*"],
+  "content_scripts": [
+    {
+      "matches": ["https://www.youtube.com/shorts/*"],
+      "js": ["./content.js"]
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "./background.js"
+  }
+  
+}
