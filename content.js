@@ -20,28 +20,64 @@
 
 // });
 
+// Retrieving the value from local storage
+chrome.storage.local.get('enableAutoScroll', function(data) {
+  // Use the retrieved value in your script
+  if (data.enableAutoScroll) {
+    window.EnableAutoScroll = true;
+    // Code to enable autoscrolling
+  } else {
+    window.EnableAutoScroll = false;
+    // Code to disable autoscrolling
+  }
+});
+
+// Listening for changes to the enableAutoScroll value in local storage
+chrome.storage.onChanged.addListener(function(changes, namespace) {
+  if (changes.enableAutoScroll) {
+    // Get the new value
+    let newValue = changes.enableAutoScroll.newValue;
+    console.log('this is newValue ' + newValue);
+    // Use the new value to update the behavior of your extension
+    if (newValue) {
+      // Code to enable autoscrolling
+      window.EnableAutoScroll = true;
+    } else {
+      window.EnableAutoScroll = false;
+      // Code to disable autoscrolling
+    }
+
+    //console.log('Auto-scrolling on content.js is now ' +  window.EnableAutoScroll);
+  }
+});
+
+
 
 
 window.isSeekingEventListenerAttached = false;
 
 
 function scrollShortsContainer() {
+  
   let shortsContainer = document.getElementById('shorts-container');
   let videoPlayer = document.querySelector('video[src]:not([src=""])');
-          if (videoPlayer ) {
-            videoPlayer.removeEventListener('seeking', scrollShortsContainer);
-            videoPlayer.removeEventListener('ended', scrollShortsContainer);
-            // console.log('removed event listener'); //TODO
-          }
-
-
-  if (shortsContainer) {
-    shortsContainer.scrollBy(0, 1);
+  if (videoPlayer ) {
+    videoPlayer.removeEventListener('seeking', scrollShortsContainer);
+    videoPlayer.removeEventListener('ended', scrollShortsContainer);
+    // console.log('removed event listener'); //TODO
+  }
+  
+  if(window.EnableAutoScroll === true){
+  
+    if (shortsContainer) {
+      shortsContainer.scrollBy(0, 1);
+    }
   }
 }
 
 function attachSeekingEventListener() {
-  if( window.isSeekingEventListenerAttached === false){
+  //console.log('window switch is : ' + window.EnableAutoScroll)
+  if( window.isSeekingEventListenerAttached === false ){
     let videoPlayer = document.querySelector('video[src]:not([src=""])');
     if (videoPlayer ) {
       videoPlayer.removeEventListener('seeking', scrollShortsContainer);

@@ -15,3 +15,11 @@ chrome.webNavigation.onHistoryStateUpdated.addListener(
   },
   { url: [{ urlMatches: 'https://www.youtube.com/shorts/*' }] }
 );
+
+// Listener for when the extension is installed
+chrome.runtime.onInstalled.addListener(function() {
+  // Initialize the enableAutoScroll value to true
+  chrome.storage.local.set({ enableAutoScroll: true }, function() {
+    console.log('Auto-scrolling has been enabled by default.');
+  });
+});
