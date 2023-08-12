@@ -37,7 +37,7 @@ chrome.storage.onChanged.addListener(function(changes, namespace) {
   if (changes.enableAutoScroll) {
     // Get the new value
     let newValue = changes.enableAutoScroll.newValue;
-    console.log('this is newValue ' + newValue);
+    //console.log('this is newValue ' + newValue);
     // Use the new value to update the behavior of your extension
     if (newValue) {
       // Code to enable autoscrolling
@@ -47,7 +47,7 @@ chrome.storage.onChanged.addListener(function(changes, namespace) {
       // Code to disable autoscrolling
     }
 
-    //console.log('Auto-scrolling on content.js is now ' +  window.EnableAutoScroll);
+    //console.log('Auto-scrolling on content.js is now after change' +  window.EnableAutoScroll);
   }
 });
 
@@ -59,6 +59,7 @@ window.isSeekingEventListenerAttached = false;
 
 function scrollShortsContainer() {
   
+  if(window.EnableAutoScroll === true){
   let shortsContainer = document.getElementById('shorts-container');
   let videoPlayer = document.querySelector('video[src]:not([src=""])');
   if (videoPlayer ) {
@@ -67,7 +68,6 @@ function scrollShortsContainer() {
     // console.log('removed event listener'); //TODO
   }
   
-  if(window.EnableAutoScroll === true){
   
     if (shortsContainer) {
       shortsContainer.scrollBy(0, 1);
@@ -76,13 +76,14 @@ function scrollShortsContainer() {
 }
 
 function attachSeekingEventListener() {
-  //console.log('window switch is : ' + window.EnableAutoScroll)
-  if( window.isSeekingEventListenerAttached === false ){
+  if( window.isSeekingEventListenerAttached === false && window.EnableAutoScroll===true){
     let videoPlayer = document.querySelector('video[src]:not([src=""])');
     if (videoPlayer ) {
       videoPlayer.removeEventListener('seeking', scrollShortsContainer);
       videoPlayer.removeEventListener('ended', scrollShortsContainer);
-
+      
+      //console.log('window switch is before attach eseeking event : ' + window.EnableAutoScroll)
+      
       videoPlayer.addEventListener('seeking', scrollShortsContainer, { passive: true });
       videoPlayer.addEventListener('ended', scrollShortsContainer, { passive: true });
       window.isSeekingEventListenerAttached = true;

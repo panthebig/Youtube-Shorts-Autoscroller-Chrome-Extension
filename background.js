@@ -10,7 +10,7 @@ chrome.webNavigation.onHistoryStateUpdated.addListener(
         target: { tabId: details.tabId },
         files: ['./content.js']
       });
-      console.log("content script from background");
+      //console.log("content script from background");
     }
   },
   { url: [{ urlMatches: 'https://www.youtube.com/shorts/*' }] }

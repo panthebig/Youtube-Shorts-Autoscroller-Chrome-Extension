@@ -1,9 +1,5 @@
 document.addEventListener('DOMContentLoaded', function() {
-  document.getElementById('scrollButton').addEventListener('click', function() {
-    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-      chrome.tabs.sendMessage(tabs[0].id, {action: 'scrollDown'});
-    });
-  },{ passive: true });
+  
 
   // window.EnableAutoScroll = document.getElementById('autoscrollSwitch').checked;
 
@@ -21,14 +17,14 @@ document.addEventListener('DOMContentLoaded', function() {
   // Retrieving the value from local storage
 chrome.storage.local.get('enableAutoScroll', function(data) {
   // Use the retrieved value to initialize the checkbox or other UI elements
-  //console.log('Auto-scrolling on retrieve is  ' +  data.enableAutoScroll);
+  //console.log('Auto-scrolling on retrieve on popup.js is  ' +  data.enableAutoScroll);
   document.getElementById('autoscrollSwitch').checked = data.enableAutoScroll;
 });
 
 // Optionally, you can also listen for changes to the checkbox and update the value in local storage
 document.getElementById('autoscrollSwitch').addEventListener('change', function() {
   chrome.storage.local.set({ enableAutoScroll: this.checked });
-  //console.log('Auto-scrolling on popup.js is now ' +  this.checked);
+  //console.log('Auto-scrolling on popup.js is now after change ' +  this.checked);
 
 });
 
