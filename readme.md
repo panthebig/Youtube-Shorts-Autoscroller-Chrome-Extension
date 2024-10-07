@@ -2,3 +2,6 @@ Introducing the YouTube Shorts Auto-Scroll Extension – an open-source revoluti
 
 Open-Source Repository:
 https://github.com/panthebig/Youtube-Shorts-Autoscroller-Chrome-Extension
+
+Chrome Web Store Page:
+https://chromewebstore.google.com/detail/youtube-shorts-autoscroll/dmmihimcjbhpmpkolhnelmhbknfcajmd
