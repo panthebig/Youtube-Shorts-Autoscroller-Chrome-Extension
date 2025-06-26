@@ -1,7 +1,7 @@
 /**
  * content.js
  * * This script is injected into YouTube Shorts pages.
- * It periodically checks the active video's playback time and simulates
+ * It periodically checks if the active video is within its last 200ms and simulates
  * a down arrow key press to navigate to the next video when the current one is finished.
  */
 
