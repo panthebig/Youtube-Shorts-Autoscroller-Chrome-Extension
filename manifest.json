@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "YouTube Shorts Autoscroll",
-  "description": "Automatically scrolls to the next YouTube Shorts video when one ends.",
+  "name": "AutoScroll for YouTube Shorts",
+  "description": "Tired of manually swiping through Shorts? This extension puts your viewing on autopilot!",
   "version": "2.0",
   "permissions": [
     "storage",
