@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "AutoScroll for YouTube Shorts™",
   "description": "Tired of manually swiping through Shorts? This extension puts your viewing on autopilot!",
-  "version": "2.01",
+  "version": "2.02",
   "permissions": [
     "storage",
     "scripting"

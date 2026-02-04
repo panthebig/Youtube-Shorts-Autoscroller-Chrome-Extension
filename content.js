@@ -20,7 +20,25 @@ const NO_REPLAY_ICON_SVG = `<svg viewBox="0 0 24 24" preserveAspectRatio="xMidYM
 
 function checkVideoAndAct() {
     // This function is confirmed to be working.
-    const activeShort = document.querySelector('ytd-reel-video-renderer[is-active]');
+    // Updated 2025: Added fallback logic for finding the active short
+    let activeShort = document.querySelector('ytd-reel-video-renderer[is-active]');
+
+    // Fallback: If no [is-active] attribute, find the renderer containing the playing video
+    if (!activeShort) {
+        const videos = document.querySelectorAll('ytd-reel-video-renderer video');
+        for (const v of videos) {
+            if (v.currentTime > 0 && !v.paused && !v.ended) {
+                activeShort = v.closest('ytd-reel-video-renderer');
+                // Found via fallback
+                break;
+            }
+        }
+    } else {
+        // Optional: Log standard success only once or less frequently to avoid spam, 
+        // but for debugging right now it's fine, or we can rely on absence of fallback log.
+        // console.log("AUTOSCROLL: Active short found via STANDARD [is-active]"); 
+    }
+
     if (!activeShort) return;
 
     const video = activeShort.querySelector('video');
@@ -55,9 +73,18 @@ function updateFeatureState(autoscroll, noReplay) {
 // --- BUTTON INJECTION ---
 
 function addButtonsToPlayer(rendererNode) {
-    // This is the CRITICAL CHANGE. We are using a different, more reliable selector to find the button panel.
-    const actionsContainer = rendererNode.querySelector('ytd-reel-player-overlay-renderer #actions');
-    
+    // Changed to use more robust finding method (2025 fix)
+    // 1. Try standard ID
+    let actionsContainer = rendererNode.querySelector('ytd-reel-player-overlay-renderer #actions');
+
+    // 2. Fallback: Find the Like button and get its parent
+    if (!actionsContainer) {
+        const likeBtn = rendererNode.querySelector('ytd-like-button-renderer');
+        if (likeBtn) {
+            actionsContainer = likeBtn.parentElement;
+        }
+    }
+
     // If the container isn't found, or if we've already added our button, stop.
     if (!actionsContainer || rendererNode.querySelector('.autoscroll-button')) {
         // If the container is not found, log an error to the console for debugging.
@@ -82,7 +109,7 @@ function addButtonsToPlayer(rendererNode) {
         e.stopPropagation();
         chrome.storage.sync.set({ noReplayEnabled: !n_r_enabled });
     });
-    
+
     actionsContainer.prepend(noReplayButton);
     actionsContainer.prepend(autoscrollButton);
 }
@@ -91,7 +118,7 @@ function createStyledButton(className, title, svgHtml) {
     const button = document.createElement('button');
     button.className = `yt-spec-button-shape-next yt-spec-button-shape-next--tonal yt-spec-button-shape-next--mono yt-spec-button-shape-next--size-l yt-spec-button-shape-next--icon-button ${className}`;
     button.title = title;
-    
+
     const iconDiv = document.createElement('div');
     iconDiv.className = 'yt-spec-button-shape-next__icon';
     iconDiv.innerHTML = svgHtml;
@@ -130,7 +157,7 @@ function initialize() {
     chrome.storage.onChanged.addListener((changes, namespace) => {
         if (namespace === 'sync') {
             chrome.storage.sync.get({ autoscrollEnabled: a_s_enabled, noReplayEnabled: n_r_enabled }, (data) => {
-                 updateFeatureState(data.autoscrollEnabled, data.noReplayEnabled);
+                updateFeatureState(data.autoscrollEnabled, data.noReplayEnabled);
             });
         }
     });
