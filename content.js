@@ -1,48 +1,53 @@
 /**
- * content.js (v5)
+ * content.js (v7)
  * This script is injected into YouTube Shorts pages.
  * It uses a MutationObserver to inject custom control buttons into each Short's player.
- * It handles the logic for autoscrolling and preventing video replays based on user settings.
- * This version uses a more robust selector for the actions container.
+ * It handles the logic for autoscrolling and playback speed based on user settings.
+ *
+ * v7 Changes:
+ *   - Removed No Replay feature.
+ *   - Added Speed modifier button (cycles 1x → 1.25x → 1.5x → 2x).
+ *   - Self-contained button styles (no YouTube CSS class dependency).
  */
 
 // --- STATE AND CONFIGURATION ---
 let autoscrollInterval = null;
 let lastScrolledVideoSrc = null;
 let a_s_enabled = true;
-let n_r_enabled = false;
+
+const SPEED_OPTIONS = [1, 1.25, 1.5, 2];
+let currentSpeedIndex = 0; // Default: 1x
 
 // --- SVG ICONS FOR BUTTONS ---
-const AUTO_SCROLL_ICON_SVG = `<svg viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet" focusable="false" class="style-scope yt-icon"><g><path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z M7.41 14.59 12 19.17l4.59-4.58L18 16l-6 6-6-6 1.41-1.41z"></path></g></svg>`;
-const NO_REPLAY_ICON_SVG = `<svg viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet" focusable="false" class="style-scope yt-icon"><g><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"></path></g></svg>`;
+const AUTO_SCROLL_ICON_SVG = `<svg viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet" focusable="false" style="width:24px;height:24px;fill:currentColor;"><g><path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z M7.41 14.59 12 19.17l4.59-4.58L18 16l-6 6-6-6 1.41-1.41z"></path></g></svg>`;
+const SPEED_ICON_SVG = `<svg viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet" focusable="false" style="width:24px;height:24px;fill:currentColor;"><g><path d="M10 8v8l6-4-6-4zM6.3 5L5 6.3l3 3V14l4-2.7 1.3.9 3.3-3.3C17.5 10 18 11.5 18 13c0 3.3-2.7 6-6 6s-6-2.7-6-6c0-1.5.5-3 1.5-4.2L5 6.3C3.2 8 2 10.3 2 13c0 5.5 4.5 10 10 10s10-4.5 10-10c0-2.7-1-5.2-2.8-7L10 8z"></path></g></svg>`;
 
 // --- CORE LOGIC ---
 
 function checkVideoAndAct() {
-    // This function is confirmed to be working.
-    // Updated 2025: Added fallback logic for finding the active short
     let activeShort = document.querySelector('ytd-reel-video-renderer[is-active]');
 
-    // Fallback: If no [is-active] attribute, find the renderer containing the playing video
+    // Fallback: find the renderer containing the playing video
     if (!activeShort) {
         const videos = document.querySelectorAll('ytd-reel-video-renderer video');
         for (const v of videos) {
             if (v.currentTime > 0 && !v.paused && !v.ended) {
                 activeShort = v.closest('ytd-reel-video-renderer');
-                // Found via fallback
                 break;
             }
         }
-    } else {
-        // Optional: Log standard success only once or less frequently to avoid spam, 
-        // but for debugging right now it's fine, or we can rely on absence of fallback log.
-        // console.log("AUTOSCROLL: Active short found via STANDARD [is-active]"); 
     }
 
     if (!activeShort) return;
 
     const video = activeShort.querySelector('video');
     if (!video || !video.src) return;
+
+    // Apply the current speed to the active video
+    const targetSpeed = SPEED_OPTIONS[currentSpeedIndex];
+    if (video.playbackRate !== targetSpeed) {
+        video.playbackRate = targetSpeed;
+    }
 
     if (a_s_enabled) {
         const isVideoPlaying = video.currentTime > 0 && !video.paused && !video.ended;
@@ -56,119 +61,213 @@ function checkVideoAndAct() {
         }
     }
 
-    if (!a_s_enabled && n_r_enabled) {
-        if (video.currentTime >= video.duration - 0.1) {
-            video.pause();
-        }
+    // Retry button injection for renderers that don't have buttons yet.
+    // This handles the first short where #actions loads after the initial injection attempt.
+    if (!activeShort.querySelector('.autoscroll-button')) {
+        addButtonsToPlayer(activeShort);
     }
 }
 
-function updateFeatureState(autoscroll, noReplay) {
+function updateFeatureState(autoscroll, speedIndex) {
     a_s_enabled = autoscroll;
-    n_r_enabled = noReplay;
+    if (speedIndex !== undefined) {
+        currentSpeedIndex = speedIndex;
+    }
     document.querySelectorAll('.autoscroll-button').forEach(btn => btn.classList.toggle('active', a_s_enabled));
-    document.querySelectorAll('.no-replay-button').forEach(btn => btn.classList.toggle('active', n_r_enabled));
+    updateSpeedLabels();
+}
+
+function updateSpeedLabels() {
+    const speed = SPEED_OPTIONS[currentSpeedIndex];
+    const label = speed === 1 ? '1x' : speed + 'x';
+    document.querySelectorAll('.speed-button .ext-shorts-btn__label').forEach(el => {
+        el.textContent = label;
+    });
+    document.querySelectorAll('.speed-button').forEach(btn => {
+        btn.classList.toggle('active', currentSpeedIndex > 0);
+    });
 }
 
 // --- BUTTON INJECTION ---
 
 function addButtonsToPlayer(rendererNode) {
-    // Changed to use more robust finding method (2025 fix)
-    // 1. Try standard ID
+    // If we've already added our buttons, stop.
+    if (rendererNode.querySelector('.autoscroll-button')) return;
+
+    // Find the actions container with multiple fallback strategies
     let actionsContainer = rendererNode.querySelector('ytd-reel-player-overlay-renderer #actions');
 
-    // 2. Fallback: Find the Like button and get its parent
     if (!actionsContainer) {
-        const likeBtn = rendererNode.querySelector('ytd-like-button-renderer');
-        if (likeBtn) {
-            actionsContainer = likeBtn.parentElement;
-        }
+        actionsContainer = rendererNode.querySelector('reel-action-bar-view-model');
     }
 
-    // If the container isn't found, or if we've already added our button, stop.
-    if (!actionsContainer || rendererNode.querySelector('.autoscroll-button')) {
-        // If the container is not found, log an error to the console for debugging.
-        if (!actionsContainer) {
-            // console.error("AUTOSCROLL: Button container not found in this renderer.", rendererNode);
-        }
-        return;
+    if (!actionsContainer) {
+        const likeBtn = rendererNode.querySelector('like-button-view-model');
+        if (likeBtn) actionsContainer = likeBtn.parentElement;
     }
+
+    if (!actionsContainer) {
+        const legacyLikeBtn = rendererNode.querySelector('ytd-like-button-renderer');
+        if (legacyLikeBtn) actionsContainer = legacyLikeBtn.parentElement;
+    }
+
+    if (!actionsContainer) return;
 
     console.log("AUTOSCROLL: Found actions container, injecting buttons...", actionsContainer);
 
-    const autoscrollButton = createStyledButton('autoscroll-button', 'Toggle Autoscroll', AUTO_SCROLL_ICON_SVG);
+    // --- Autoscroll Button ---
+    const autoscrollButton = createStyledButton('autoscroll-button', 'Toggle Autoscroll', AUTO_SCROLL_ICON_SVG, 'Scroll');
     autoscrollButton.classList.toggle('active', a_s_enabled);
     autoscrollButton.addEventListener('click', (e) => {
         e.stopPropagation();
+        e.preventDefault();
         chrome.storage.sync.set({ autoscrollEnabled: !a_s_enabled });
     });
 
-    const noReplayButton = createStyledButton('no-replay-button', 'Prevent Replay (when Autoscroll is off)', NO_REPLAY_ICON_SVG);
-    noReplayButton.classList.toggle('active', n_r_enabled);
-    noReplayButton.addEventListener('click', (e) => {
+    // --- Speed Button ---
+    const speedLabel = SPEED_OPTIONS[currentSpeedIndex] === 1 ? '1x' : SPEED_OPTIONS[currentSpeedIndex] + 'x';
+    const speedButton = createStyledButton('speed-button', 'Change Playback Speed', SPEED_ICON_SVG, speedLabel);
+    speedButton.classList.toggle('active', currentSpeedIndex > 0);
+    speedButton.addEventListener('click', (e) => {
         e.stopPropagation();
-        chrome.storage.sync.set({ noReplayEnabled: !n_r_enabled });
+        e.preventDefault();
+        const newIndex = (currentSpeedIndex + 1) % SPEED_OPTIONS.length;
+        chrome.storage.sync.set({ speedIndex: newIndex });
     });
 
-    actionsContainer.prepend(noReplayButton);
+    actionsContainer.prepend(speedButton);
     actionsContainer.prepend(autoscrollButton);
 }
 
-function createStyledButton(className, title, svgHtml) {
+/**
+ * Creates a fully self-styled button that visually matches YouTube Shorts action buttons.
+ */
+function createStyledButton(className, title, svgHtml, labelText) {
+    const wrapper = document.createElement('div');
+    wrapper.className = `ext-shorts-btn ${className}`;
+    wrapper.title = title;
+
     const button = document.createElement('button');
-    button.className = `yt-spec-button-shape-next yt-spec-button-shape-next--tonal yt-spec-button-shape-next--mono yt-spec-button-shape-next--size-l yt-spec-button-shape-next--icon-button ${className}`;
-    button.title = title;
+    button.className = 'ext-shorts-btn__circle';
+    button.setAttribute('aria-label', title);
 
     const iconDiv = document.createElement('div');
-    iconDiv.className = 'yt-spec-button-shape-next__icon';
+    iconDiv.className = 'ext-shorts-btn__icon';
     iconDiv.innerHTML = svgHtml;
 
     button.appendChild(iconDiv);
-    return button;
+    wrapper.appendChild(button);
+
+    if (labelText) {
+        const label = document.createElement('span');
+        label.className = 'ext-shorts-btn__label';
+        label.textContent = labelText;
+        wrapper.appendChild(label);
+    }
+
+    return wrapper;
 }
 
 // --- INITIALIZATION AND OBSERVERS ---
 
 function initialize() {
-    console.log("AUTOSCROLL: Content script v5 loaded. Waiting for Shorts player...");
+    console.log("AUTOSCROLL: Content script v7 loaded.");
 
     const style = document.createElement('style');
     style.textContent = `
-        .autoscroll-button,
-        .no-replay-button {
-            margin-top: 12px;
+        /* === AutoScroll Extension — Self-Contained Button Styles === */
+        .ext-shorts-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            margin-bottom: 12px;
+            -webkit-user-select: none;
+            user-select: none;
         }
-        .autoscroll-button.active .yt-spec-button-shape-next__icon,
-        .no-replay-button.active .yt-spec-button-shape-next__icon {
-            color: #3ea6ff !important;
+
+        .ext-shorts-btn__circle {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            border: none;
+            background-color: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background-color 0.2s ease, color 0.2s ease, transform 0.1s ease;
+            padding: 0;
+            outline: none;
         }
-        .autoscroll-button.active,
-        .no-replay-button.active {
-            background-color: rgba(255, 255, 255, 0.25) !important;
+
+        .ext-shorts-btn__circle:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .ext-shorts-btn__circle:active {
+            transform: scale(0.92);
+        }
+
+        .ext-shorts-btn__icon {
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+        }
+
+        .ext-shorts-btn__icon svg {
+            width: 24px;
+            height: 24px;
+            fill: currentColor;
+        }
+
+        .ext-shorts-btn__label {
+            font-family: "Roboto", "Arial", sans-serif;
+            font-size: 12px;
+            color: #fff;
+            margin-top: 4px;
+            line-height: 1.2;
+            text-align: center;
+            pointer-events: none;
+        }
+
+        /* Active state — blue highlight */
+        .ext-shorts-btn.active .ext-shorts-btn__circle {
+            background-color: rgba(62, 166, 255, 0.3);
+            color: #3ea6ff;
+        }
+
+        .ext-shorts-btn.active .ext-shorts-btn__label {
+            color: #3ea6ff;
+        }
+
+        .ext-shorts-btn.active .ext-shorts-btn__circle:hover {
+            background-color: rgba(62, 166, 255, 0.45);
         }
     `;
     document.head.appendChild(style);
 
-
-    chrome.storage.sync.get({ autoscrollEnabled: true, noReplayEnabled: false }, (data) => {
-        updateFeatureState(data.autoscrollEnabled, data.noReplayEnabled);
+    chrome.storage.sync.get({ autoscrollEnabled: true, speedIndex: 0 }, (data) => {
+        updateFeatureState(data.autoscrollEnabled, data.speedIndex);
     });
 
     chrome.storage.onChanged.addListener((changes, namespace) => {
         if (namespace === 'sync') {
-            chrome.storage.sync.get({ autoscrollEnabled: a_s_enabled, noReplayEnabled: n_r_enabled }, (data) => {
-                updateFeatureState(data.autoscrollEnabled, data.noReplayEnabled);
+            chrome.storage.sync.get({ autoscrollEnabled: a_s_enabled, speedIndex: currentSpeedIndex }, (data) => {
+                updateFeatureState(data.autoscrollEnabled, data.speedIndex);
             });
         }
     });
 
-    // This observer watches for new videos being added to the page
     const observer = new MutationObserver((mutationsList) => {
         for (const mutation of mutationsList) {
             if (mutation.type === 'childList') {
-                // Check any added node to see if it's a shorts renderer or contains one
                 mutation.addedNodes.forEach(node => {
-                    if (node.nodeType === 1) { // It's an element
+                    if (node.nodeType === 1) {
                         if (node.matches('ytd-reel-video-renderer')) {
                             addButtonsToPlayer(node);
                         }
@@ -180,8 +279,6 @@ function initialize() {
     });
 
     observer.observe(document.body, { childList: true, subtree: true });
-
-    // Try to add buttons to any renderers that might already be on the page
     document.querySelectorAll('ytd-reel-video-renderer').forEach(addButtonsToPlayer);
 
     if (autoscrollInterval) clearInterval(autoscrollInterval);

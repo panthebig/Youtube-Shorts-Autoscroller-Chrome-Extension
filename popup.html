@@ -100,6 +100,23 @@
             -ms-transform: translateX(22px);
             transform: translateX(22px);
         }
+
+        /* Speed selector */
+        .speed-select {
+            padding: 4px 8px;
+            font-size: 14px;
+            font-weight: 500;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            background-color: #fff;
+            color: #1c1e21;
+            cursor: pointer;
+            outline: none;
+        }
+
+        .speed-select:focus {
+            border-color: #1877f2;
+        }
     </style>
 </head>
 <body>
@@ -113,11 +130,13 @@
     </div>
 
     <div class="control-row">
-        <label for="noReplayToggle">No Replay</label>
-        <label class="switch">
-            <input type="checkbox" id="noReplayToggle">
-            <span class="slider"></span>
-        </label>
+        <label for="speedSelect">Speed</label>
+        <select class="speed-select" id="speedSelect">
+            <option value="0">1x</option>
+            <option value="1">1.25x</option>
+            <option value="2">1.5x</option>
+            <option value="3">2x</option>
+        </select>
     </div>
 
     <script src="popup.js"></script>
