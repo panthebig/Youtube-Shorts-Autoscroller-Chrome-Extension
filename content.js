@@ -1,9 +1,12 @@
 /**
- * content.js (v7)
+ * content.js (v8)
  * This script is injected into YouTube Shorts pages.
  * It uses a MutationObserver to inject custom control buttons into each Short's player.
  * It handles the logic for autoscrolling and playback speed based on user settings.
  *
+ * v8 Changes:
+ *   - Future-proof button injection: finds the Like button by aria-label and walks
+ *     up the DOM to locate a visible container, instead of hardcoding YouTube element names.
  * v7 Changes:
  *   - Removed No Replay feature.
  *   - Added Speed modifier button (cycles 1x → 1.25x → 1.5x → 2x).
@@ -94,21 +97,31 @@ function addButtonsToPlayer(rendererNode) {
     // If we've already added our buttons, stop.
     if (rendererNode.querySelector('.autoscroll-button')) return;
 
-    // Find the actions container with multiple fallback strategies
-    let actionsContainer = rendererNode.querySelector('ytd-reel-player-overlay-renderer #actions');
+    /**
+     * Find the actions container using a future-proof approach.
+     * Instead of hardcoding YouTube element names (which change every update),
+     * we find the Like button by its aria-label (YouTube will always have a Like button)
+     * and walk up the DOM to find the visible container holding all action buttons.
+     */
+    let actionsContainer = null;
 
-    if (!actionsContainer) {
-        actionsContainer = rendererNode.querySelector('reel-action-bar-view-model');
-    }
+    // Find the Like button by aria-label — this is the most stable identifier.
+    // YouTube always has a like button with an aria-label containing "like".
+    const likeButton = rendererNode.querySelector('button[aria-label*="like" i]');
 
-    if (!actionsContainer) {
-        const likeBtn = rendererNode.querySelector('like-button-view-model');
-        if (likeBtn) actionsContainer = likeBtn.parentElement;
-    }
-
-    if (!actionsContainer) {
-        const legacyLikeBtn = rendererNode.querySelector('ytd-like-button-renderer');
-        if (legacyLikeBtn) actionsContainer = legacyLikeBtn.parentElement;
+    if (likeButton) {
+        // Walk up from the Like button to find the best container:
+        // We want the nearest ancestor that has 3+ children (the action buttons group)
+        // and has visible dimensions on screen.
+        let el = likeButton.parentElement;
+        while (el && el !== rendererNode) {
+            const rect = el.getBoundingClientRect();
+            if (rect.height > 0 && el.children.length >= 3) {
+                actionsContainer = el;
+                break;
+            }
+            el = el.parentElement;
+        }
     }
 
     if (!actionsContainer) return;
@@ -181,7 +194,8 @@ function initialize() {
             flex-direction: column;
             align-items: center;
             cursor: pointer;
-            margin-bottom: 12px;
+            margin: 0 0 8px 0;
+            padding: 0;
             -webkit-user-select: none;
             user-select: none;
         }
